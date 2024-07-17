@@ -18,7 +18,7 @@ except ImportError:
     from distutils.core import setup, Extension, Command
 
 
-dependencies = ['tornado >= 4.0, <6.0', ]
+dependencies = ['tornado >= 4.0, <7.0', ]
 psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
 
 if psycopg2_impl == 'psycopg2cffi':
@@ -34,7 +34,7 @@ else:
 
 setup(
     name='Momoko',
-    version='2.2.5.1',
+    version='2.2.5.2',
     description="Momoko wraps Psycopg2's functionality for use in Tornado.",
     long_description=open('README.rst').read(),
     author='Frank Smit & Zaar Hai',
