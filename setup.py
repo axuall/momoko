@@ -7,13 +7,12 @@
 # From: http://article.gmane.org/gmane.comp.python.peak/2509
 # Work around setuptools bug
 # http://article.gmane.org/gmane.comp.python.peak/2509
-import multiprocessing
 import os
 
 try:
     from setuptools import Command, Extension, setup
 except ImportError:
-    from distutils.core import Command, Extension, setup
+    from distutils.core import setup
 
 
 dependencies = [
