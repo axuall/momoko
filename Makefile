@@ -1,6 +1,6 @@
 include .testenv
 
-.PHONY: all test
+.PHONY: all test tcproxy start_docker run_test stop_docker clean
 
 all:
 
@@ -21,3 +21,5 @@ run_test:
 
 stop_docker:
 	-docker rm -f ${CONTAINER_NAME}
+
+clean: stop_docker
