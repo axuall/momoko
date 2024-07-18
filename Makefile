@@ -1,5 +1,3 @@
-include .testenv
-
 .PHONY: all test tcproxy start_docker run_test stop_docker clean
 
 all:
@@ -10,16 +8,16 @@ tcproxy:
 	$(MAKE) -C tcproxy
 
 start_docker: stop_docker
-	docker run -d --name ${CONTAINER_NAME} -e POSTGRES_MAX_CONNECTIONS=20000  -e "POSTGRES_PASSWORD=${MOMOKO_TEST_PASSWORD}" -p "${MOMOKO_TEST_HOST}:${MOMOKO_TEST_PORT}:5432" postgres -c 'max_connections=20000'
-	until pg_isready -h ${MOMOKO_TEST_HOST} -p ${MOMOKO_TEST_PORT} -U ${MOMOKO_TEST_USER}; do \
+	docker run -d --name momoko_test_pg -e "POSTGRES_PASSWORD=password" -p "127.0.0.1:5432:5432" postgres -c 'max_connections=20000'
+	until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do \
 		sleep 1; \
 		echo "Waiting for PostgreSQL..."; \
 	done
 
 run_test:
-	pytest
+	pytest tests.py
 
 stop_docker:
-	-docker rm -f ${CONTAINER_NAME}
+	-docker rm -f momoko_test_pg 
 
 clean: stop_docker
