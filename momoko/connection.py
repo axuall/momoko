@@ -725,7 +725,7 @@ class Connection(object):
     def _io_callback(self, future, result, fd=None, events=None):
         try:
             state = self.connection.poll()
-        except (psycopg2.Warning, psycopg2.Error) as err:
+        except (psycopg2.Warning, psycopg2.Error):
             self.ioloop.remove_handler(self.fileno)
             future_set_exc_info(future, sys.exc_info())
         else:

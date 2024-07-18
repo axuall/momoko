@@ -10,12 +10,11 @@ import os
 # From: http://article.gmane.org/gmane.comp.python.peak/2509
 # Work around setuptools bug
 # http://article.gmane.org/gmane.comp.python.peak/2509
-import multiprocessing
 
 try:
     from setuptools import setup, Extension, Command
 except ImportError:
-    from distutils.core import setup, Extension, Command
+    from distutils.core import setup
 
 
 dependencies = ['tornado >= 4.0, <7.0', ]
