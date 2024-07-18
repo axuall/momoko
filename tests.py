@@ -22,9 +22,9 @@ if sys.version_info[0] >= 3:
 log = logging.getLogger("unittest")
 
 debug = os.environ.get('MOMOKO_TEST_DEBUG', None)
-db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
+db_database = os.environ.get('MOMOKO_TEST_DB', 'postgres')
 db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
-db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
+db_password = os.environ.get('MOMOKO_TEST_PASSWORD', 'password')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '127.0.0.1')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 db_proxy_port = os.environ.get('MOMOKO_TEST_PROXY_PORT', 15432)
