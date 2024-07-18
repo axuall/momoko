@@ -18,6 +18,10 @@ try:
     psycopg2.extensions.POLL_OK
 except AttributeError:
     import warnings
-    warnings.warn(RuntimeWarning(
-        'Psycopg2 does not have support for asynchronous connections. '
-        'You need at least version 2.2.0 of Psycopg2 to use Momoko.'))
+
+    warnings.warn(
+        RuntimeWarning(
+            "Psycopg2 does not have support for asynchronous connections. "
+            "You need at least version 2.2.0 of Psycopg2 to use Momoko."
+        )
+    )
