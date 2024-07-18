@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 
-import os
-
 # The multiprocessingimport is to prevent the following error
 # after all the tests have been executed.
 # Error in atexit._run_exitfuncs:
 # TypeError: 'NoneType' object is not callable
-
 # From: http://article.gmane.org/gmane.comp.python.peak/2509
 # Work around setuptools bug
 # http://article.gmane.org/gmane.comp.python.peak/2509
 import multiprocessing
+import os
 
 try:
-    from setuptools import setup, Extension, Command
+    from setuptools import Command, Extension, setup
 except ImportError:
-    from distutils.core import setup, Extension, Command
+    from distutils.core import Command, Extension, setup
 
 
 dependencies = [

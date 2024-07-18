@@ -1,21 +1,20 @@
 from __future__ import print_function
 
+import datetime
+import inspect
+import logging
 import os
-import string
 import random
+import string
+import subprocess
+import sys
 import time
 from collections import deque
 from itertools import chain
-import inspect
-import logging
-import datetime
-import subprocess
 
 import tornado
 from tornado import gen
-from tornado.testing import unittest, AsyncTestCase, gen_test
-
-import sys
+from tornado.testing import AsyncTestCase, gen_test, unittest
 
 if sys.version_info[0] >= 3:
     unicode = str
@@ -99,10 +98,11 @@ except ImportError:
         process.wait()
 
 
+import psycopg2
+from psycopg2.extras import NamedTupleCursor, RealDictConnection, RealDictCursor
+
 import momoko
 import momoko.exceptions
-import psycopg2
-from psycopg2.extras import RealDictConnection, RealDictCursor, NamedTupleCursor
 
 # Suspress connection errors on volatile db tests
 momoko.Pool.log_connect_errors = False
