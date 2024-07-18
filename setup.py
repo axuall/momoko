@@ -12,7 +12,7 @@ import os
 # http://article.gmane.org/gmane.comp.python.peak/2509
 
 try:
-    from setuptools import setup, Extension, Command
+    from setuptools import Command, Extension, setup
 except ImportError:
     from distutils.core import setup
 

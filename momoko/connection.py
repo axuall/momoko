@@ -12,26 +12,26 @@ MIT, see LICENSE for more details.
 from __future__ import print_function
 
 import sys
+
 if sys.version_info[0] >= 3:
     basestring = str
 
-import logging
-from functools import partial
-from collections import deque
-import time
 import datetime
+import logging
+import time
+from collections import deque
 from contextlib import contextmanager
+from functools import partial
 
 import psycopg2
+import tornado
+from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE
 from psycopg2.extras import register_hstore as _psy_register_hstore
 from psycopg2.extras import register_json as _psy_register_json
-from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE
-
-import tornado
+from tornado.concurrent import Future, chain_future
 from tornado.ioloop import IOLoop
-from tornado.concurrent import chain_future, Future
 
-from .exceptions import PoolError, PartiallyConnectedError
+from .exceptions import PartiallyConnectedError, PoolError
 
 # Backfill for tornado 5 compatability
 # https://www.tornadoweb.org/en/stable/concurrent.html#tornado.concurrent.future_set_exc_info

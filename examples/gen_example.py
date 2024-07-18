@@ -10,14 +10,13 @@ from __future__ import print_function
 
 import os
 
-import tornado.web
+import tornado.httpserver
 import tornado.ioloop
 import tornado.options
+import tornado.web
 from tornado import gen
-import tornado.httpserver
 
 import momoko
-
 
 db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
 db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')

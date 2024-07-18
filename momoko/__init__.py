@@ -11,9 +11,8 @@ MIT, see LICENSE for more details.
 
 import psycopg2
 
-from .connection import Pool, Connection, connect
-from .exceptions import PoolError, PartiallyConnectedError
-
+from .connection import Connection, Pool, connect
+from .exceptions import PartiallyConnectedError, PoolError
 
 try:
     psycopg2.extensions.POLL_OK
