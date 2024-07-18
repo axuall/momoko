@@ -1,83 +1,108 @@
 from __future__ import print_function
 
+import datetime
+import inspect
+import logging
 import os
-import string
 import random
+import string
+import subprocess
+import sys
 import time
 from collections import deque
 from itertools import chain
-import inspect
-import logging
-import datetime
-import subprocess
 
 import tornado
 from tornado import gen
-from tornado.testing import unittest, AsyncTestCase, gen_test
+from tornado.testing import AsyncTestCase, gen_test, unittest
 
-import sys
 if sys.version_info[0] >= 3:
     unicode = str
 
 log = logging.getLogger("unittest")
 
-debug = os.environ.get('MOMOKO_TEST_DEBUG', None)
-db_database = os.environ.get('MOMOKO_TEST_DB', 'postgres')
-db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
-db_password = os.environ.get('MOMOKO_TEST_PASSWORD', 'password')
-db_host = os.environ.get('MOMOKO_TEST_HOST', '127.0.0.1')
-db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
-db_proxy_port = os.environ.get('MOMOKO_TEST_PROXY_PORT', 15432)
-test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
-good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
-    db_database, db_user, db_password, db_host, db_port)
-good_proxy_dsn = 'dbname=%s user=%s password=%s hostaddr=127.0.0.1 port=%s' % (
-    db_database, db_user, db_password, db_proxy_port)
-bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
-    'db', 'user', 'password', "127.0.0.127", 11111)
-local_bad_dsn = 'dbname=%s user=%s password=xx%s' % (
-    'db', 'user', 'password')
+debug = os.environ.get("MOMOKO_TEST_DEBUG", None)
+db_database = os.environ.get("MOMOKO_TEST_DB", "postgres")
+db_user = os.environ.get("MOMOKO_TEST_USER", "postgres")
+db_password = os.environ.get("MOMOKO_TEST_PASSWORD", "password")
+db_host = os.environ.get("MOMOKO_TEST_HOST", "127.0.0.1")
+db_port = os.environ.get("MOMOKO_TEST_PORT", 5432)
+db_proxy_port = os.environ.get("MOMOKO_TEST_PROXY_PORT", 15432)
+test_hstore = True if os.environ.get("MOMOKO_TEST_HSTORE", False) == "1" else False
+good_dsn = "dbname=%s user=%s password=%s host=%s port=%s" % (
+    db_database,
+    db_user,
+    db_password,
+    db_host,
+    db_port,
+)
+good_proxy_dsn = "dbname=%s user=%s password=%s hostaddr=127.0.0.1 port=%s" % (
+    db_database,
+    db_user,
+    db_password,
+    db_proxy_port,
+)
+bad_dsn = "dbname=%s user=%s password=xx%s host=%s port=%s" % (
+    "db",
+    "user",
+    "password",
+    "127.0.0.127",
+    11111,
+)
+local_bad_dsn = "dbname=%s user=%s password=xx%s" % ("db", "user", "password")
 
-TCPPROXY_PATH = os.environ.get('MOMOKO_TCPPROXY_PATH', "./tcproxy/src/tcproxy")
+TCPPROXY_PATH = os.environ.get("MOMOKO_TCPPROXY_PATH", "./tcproxy/src/tcproxy")
 
 assert (db_database or db_user or db_password or db_host or db_port) is not None, (
-    'Environment variables for the unit tests are not set. Please set the following '
-    'variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, '
-    'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
+    "Environment variables for the unit tests are not set. Please set the following "
+    "variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, "
+    "MOMOKO_TEST_HOST, MOMOKO_TEST_PORT"
+)
 
 print("good_dsn %s" % good_dsn)
 print("good_proxy_dsn %s" % good_proxy_dsn)
 print("bad_dsn %s" % bad_dsn)
 print("local_bad_dsn %s" % local_bad_dsn)
 
-psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
+psycopg2_impl = os.environ.get("MOMOKO_PSYCOPG2_IMPL", "psycopg2")
 
-if psycopg2_impl == 'psycopg2cffi':
+if psycopg2_impl == "psycopg2cffi":
     from psycopg2cffi import compat
+
     compat.register()
-elif psycopg2_impl == 'psycopg2ct':
+elif psycopg2_impl == "psycopg2ct":
     from psycopg2ct import compat
+
     compat.register()
 
 # Some compatibility with python 2.7
 try:
     ProcessLookupError
 except NameError:
-    class ProcessLookupError(Exception): pass
+
+    class ProcessLookupError(Exception):
+        pass
+
+
 try:
     from subprocess import TimeoutExpired
+
     def pwait(process, timeout=None):
         process.wait(timeout)
 except ImportError:
-    class TimeoutExpired(Exception): pass
+
+    class TimeoutExpired(Exception):
+        pass
+
     def pwait(process, timeout=None):
         process.wait()
 
 
+import psycopg2
+from psycopg2.extras import NamedTupleCursor, RealDictConnection, RealDictCursor
+
 import momoko
 import momoko.exceptions
-import psycopg2
-from psycopg2.extras import RealDictConnection, RealDictCursor, NamedTupleCursor
 
 # Suspress connection errors on volatile db tests
 momoko.Pool.log_connect_errors = False
@@ -115,12 +140,12 @@ class BaseTest(AsyncTestCase):
 
     def build_transaction_query(self, ucode=False):
         return (
-            unicode('SELECT 1, 2, 3, 4;') if ucode else 'SELECT 1, 2, 3, 4;',
-            unicode('SELECT 5, 6, 7, 8;') if ucode else 'SELECT 5, 6, 7, 8;',
-            'SELECT 9, 10, 11, 12;',
-            ('SELECT %s+10, %s+10, %s+10, %s+10;', (3, 4, 5, 6)),
-            'SELECT 17, 18, 19, 20;',
-            ('SELECT %s+20, %s+20, %s+20, %s+20;', (1, 2, 3, 4)),
+            unicode("SELECT 1, 2, 3, 4;") if ucode else "SELECT 1, 2, 3, 4;",
+            unicode("SELECT 5, 6, 7, 8;") if ucode else "SELECT 5, 6, 7, 8;",
+            "SELECT 9, 10, 11, 12;",
+            ("SELECT %s+10, %s+10, %s+10, %s+10;", (3, 4, 5, 6)),
+            "SELECT 17, 18, 19, 20;",
+            ("SELECT %s+20, %s+20, %s+20, %s+20;", (1, 2, 3, 4)),
         )
 
     def compare_transaction_cursors(self, cursors):
@@ -139,7 +164,9 @@ class BaseDataTest(BaseTest):
         yield self.conn.execute("DROP TABLE IF EXISTS unit_test_transaction;")
         yield self.conn.execute("DROP TABLE IF EXISTS  unit_test_int_table;")
         yield self.conn.execute("DROP FUNCTION IF EXISTS unit_test_callproc(integer);")
-        yield self.conn.execute("DROP FUNCTION IF EXISTS unit_test_callproc_noparams();")
+        yield self.conn.execute(
+            "DROP FUNCTION IF EXISTS unit_test_callproc_noparams();"
+        )
 
     def prepare_db(self):
         yield self.conn.execute(
@@ -165,9 +192,12 @@ class BaseDataTest(BaseTest):
         )
 
     def fill_int_data(self, amount=1000):
-        return self.conn.transaction([
-            "INSERT INTO unit_test_int_table VALUES %s" % ",".join("(%s)" % i for i in range(amount)),
-        ])
+        return self.conn.transaction(
+            [
+                "INSERT INTO unit_test_int_table VALUES %s"
+                % ",".join("(%s)" % i for i in range(amount)),
+            ]
+        )
 
     @gen_test
     def set_up_10(self):
@@ -219,7 +249,7 @@ class MomokoConnectionDataTest(BaseDataTest):
         Issue #136
         """
         cursor = yield self.conn.execute("SELECT 'a%s'")
-        self.assertEqual(cursor.fetchall(), [('a%s',)])
+        self.assertEqual(cursor.fetchall(), [("a%s",)])
 
     @gen_test
     def test_ping(self):
@@ -233,9 +263,12 @@ class MomokoConnectionDataTest(BaseDataTest):
         chars = string.ascii_letters + string.digits + string.punctuation
 
         for n in range(5):
-            random_data = ''.join([random.choice(chars) for i in range(query_size)])
-            cursor = yield self.conn.execute("INSERT INTO unit_test_large_query (data) VALUES (%s) "
-                                             "RETURNING data;", (random_data,))
+            random_data = "".join([random.choice(chars) for i in range(query_size)])
+            cursor = yield self.conn.execute(
+                "INSERT INTO unit_test_large_query (data) VALUES (%s) "
+                "RETURNING data;",
+                (random_data,),
+            )
             self.assertEqual(cursor.fetchone(), (random_data,))
 
         cursor = yield self.conn.execute("SELECT COUNT(*) FROM unit_test_large_query;")
@@ -257,13 +290,16 @@ class MomokoConnectionDataTest(BaseDataTest):
     def test_transaction_rollback(self):
         """Testing transaction auto-rollback functionality"""
         chars = string.ascii_letters + string.digits + string.punctuation
-        data = ''.join([random.choice(chars) for i in range(100)])
+        data = "".join([random.choice(chars) for i in range(100)])
 
         try:
-            yield self.conn.transaction((
-                ("INSERT INTO unit_test_transaction (data) VALUES (%s);", (data,)),
-                "SELECT DOES NOT WORK!;"
-            ), auto_rollback=True)
+            yield self.conn.transaction(
+                (
+                    ("INSERT INTO unit_test_transaction (data) VALUES (%s);", (data,)),
+                    "SELECT DOES NOT WORK!;",
+                ),
+                auto_rollback=True,
+            )
         except psycopg2.ProgrammingError:
             pass
 
@@ -280,7 +316,7 @@ class MomokoConnectionDataTest(BaseDataTest):
         cursor = yield self.conn.execute("SELECT 'a=>b, c=>d'::hstore;")
         self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
-        cursor = yield self.conn.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
+        cursor = yield self.conn.execute("SELECT %s;", ({"e": "f", "g": "h"},))
         self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
 
     @gen_test
@@ -310,14 +346,14 @@ class MomokoConnectionDataTest(BaseDataTest):
     def test_query_error(self):
         """Testing that execute method propages exception properly"""
         try:
-            yield self.conn.execute('SELECT DOES NOT WORK!;')
+            yield self.conn.execute("SELECT DOES NOT WORK!;")
         except psycopg2.ProgrammingError:
             pass
 
     @gen_test
     def test_mogrify(self):
         """Testing mogrify"""
-        sql = self.conn.mogrify("SELECT %s, %s;", ('\'"test"\'', "SELECT 1;"))
+        sql = self.conn.mogrify("SELECT %s, %s;", ("'\"test\"'", "SELECT 1;"))
         if self.conn.server_version < 90100:
             self.assertEqual(sql, b"SELECT E'''\"test\"''', E'SELECT 1;';")
         else:
@@ -343,10 +379,14 @@ class MomokoConnectionServerSideCursorTest(BaseDataTest):
         yield self.fill_int_data(int_count)
 
         yield self.conn.execute("BEGIN")
-        yield self.conn.execute("DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table")
+        yield self.conn.execute(
+            "DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table"
+        )
         while offset < int_count:
             cursor = yield self.conn.execute("FETCH %s FROM all_ints", (chunk,))
-            self.assertEqual(cursor.fetchall(), [(i, ) for i in range(offset, offset+chunk)])
+            self.assertEqual(
+                cursor.fetchall(), [(i,) for i in range(offset, offset + chunk)]
+            )
             offset += chunk
         yield self.conn.execute("CLOSE all_ints")
         yield self.conn.execute("COMMIT")
@@ -361,7 +401,9 @@ class MomokoConnectionSetsessionTest(BaseTest):
 
         for i in range(len(time_zones)):
             setsession[i] = "SET TIME ZONE '%s'" % time_zones[i]
-            conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, setsession=setsession)
+            conn = yield momoko.connect(
+                self.dsn, ioloop=self.io_loop, setsession=setsession
+            )
             cursor = yield conn.execute("SELECT current_setting('TIMEZONE');")
             self.assertEqual(cursor.fetchall(), [(time_zones[i],)])
             conn.close()
@@ -372,27 +414,35 @@ class MomokoConnectionFactoriesTest(BaseTest):
     @gen_test
     def test_cursor_factory(self):
         """Testing that cursor_factory parameter is properly propagated"""
-        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        conn = yield momoko.connect(
+            self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor
+        )
         cursor = yield conn.execute("SELECT 1 AS a")
         self.assertEqual(cursor.fetchone(), {"a": 1})
 
     @gen_test
     def test_connection_factory(self):
         """Testing that connection_factory parameter is properly propagated"""
-        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, connection_factory=RealDictConnection)
+        conn = yield momoko.connect(
+            self.dsn, ioloop=self.io_loop, connection_factory=RealDictConnection
+        )
         cursor = yield conn.execute("SELECT 1 AS a")
         self.assertEqual(cursor.fetchone(), {"a": 1})
 
     @gen_test
     def test_ping_with_named_cursor(self):
         """Test whether Connection.ping works fine with named cursors. Issue #74"""
-        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        conn = yield momoko.connect(
+            self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor
+        )
         yield conn.ping()
 
     @gen_test
     def test_cursor_factory_with_json(self):
         """Testing that register_json works with RealDictCursor"""
-        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        conn = yield momoko.connect(
+            self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor
+        )
         yield conn.register_json()
         cursor = yield conn.execute("SELECT 1 AS a")
         self.assertEqual(cursor.fetchone(), {"a": 1})
@@ -408,8 +458,17 @@ class PoolBaseTest(BaseTest):
     max_size = None
     raise_connect_errors = False
 
-    def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None, size=None, auto_shrink=False,
-                   shrink_delay=datetime.timedelta(seconds=1), shrink_period=datetime.timedelta(milliseconds=500)):
+    def build_pool(
+        self,
+        dsn=None,
+        setsession=(),
+        con_factory=None,
+        cur_factory=None,
+        size=None,
+        auto_shrink=False,
+        shrink_delay=datetime.timedelta(seconds=1),
+        shrink_period=datetime.timedelta(milliseconds=500),
+    ):
         db = momoko.Pool(
             dsn=(dsn or self.dsn),
             size=(size or self.pool_size),
@@ -421,7 +480,7 @@ class PoolBaseTest(BaseTest):
             cursor_factory=cur_factory,
             auto_shrink=auto_shrink,
             shrink_period=shrink_period,
-            shrink_delay=shrink_delay
+            shrink_delay=shrink_delay,
         )
         return db.connect()
 
@@ -432,6 +491,7 @@ class PoolBaseTest(BaseTest):
         # but it does not work in Python 2.6 for some reason
         def runner(x):
             yield f
+
         gen_test(timeout=30)(runner)(self)
         return f.result()
 
@@ -469,7 +529,10 @@ class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
     pass
 
 
-@unittest.skipIf(psycopg2_impl == "psycopg2cffi", "Skipped. See: https://github.com/chtd/psycopg2cffi/issues/49")
+@unittest.skipIf(
+    psycopg2_impl == "psycopg2cffi",
+    "Skipped. See: https://github.com/chtd/psycopg2cffi/issues/49",
+)
 class ProxyMixIn(object):
     dsn = good_proxy_dsn
     good_dsn = good_proxy_dsn
@@ -480,7 +543,12 @@ class ProxyMixIn(object):
             subprocess.call(("killall", TCPPROXY_PATH), stderr=stderr)
 
         proxy_conf = "127.0.0.1:%s -> %s:%s" % (db_proxy_port, db_host, db_port)
-        self.proxy = subprocess.Popen((TCPPROXY_PATH, proxy_conf,))
+        self.proxy = subprocess.Popen(
+            (
+                TCPPROXY_PATH,
+                proxy_conf,
+            )
+        )
         time.sleep(0.1)
 
     def terminate_proxy(self):
@@ -539,13 +607,15 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
         self.conn = self.db
 
     def tear_down_30(self):
-        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+        self.assertEqual(
+            len(self.db.conns.busy), 0, msg="Some connections were not recycled"
+        )
 
     # Pool's mogirify is async -> copy/paste
     @gen_test
     def test_mogrify(self):
         """Testing mogrify"""
-        sql = yield self.conn.mogrify("SELECT %s, %s;", ('\'"test"\'', "SELECT 1;"))
+        sql = yield self.conn.mogrify("SELECT %s, %s;", ("'\"test\"'", "SELECT 1;"))
         if self.conn.server_version < 90100:
             self.assertEqual(sql, b"SELECT E'''\"test\"''', E'SELECT 1;';")
         else:
@@ -581,7 +651,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             conn = yield self.db.getconn()
             for j in range(10):
                 cursor = yield conn.execute("SELECT %s", (j,))
-                self.assertEqual(cursor.fetchall(), [(j, )])
+                self.assertEqual(cursor.fetchall(), [(j,)])
             self.db.putconn(conn)
 
     @gen_test
@@ -593,7 +663,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             conn = yield self.db.getconn()
             for j in range(10):
                 cursor = yield conn.execute("SELECT %s", (j,))
-                self.assertEqual(cursor.fetchall(), [(j, )])
+                self.assertEqual(cursor.fetchall(), [(j,)])
             self.db.putconn(conn)
 
     @gen_test
@@ -605,7 +675,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             with self.db.manage(conn):
                 for j in range(10):
                     cursor = yield conn.execute("SELECT %s", (j,))
-                    self.assertEqual(cursor.fetchall(), [(j, )])
+                    self.assertEqual(cursor.fetchall(), [(j,)])
 
     @gen_test
     def test_getconn_manage_with_reconnect(self):
@@ -617,7 +687,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             with self.db.manage(conn):
                 for j in range(10):
                     cursor = yield conn.execute("SELECT %s", (j,))
-                    self.assertEqual(cursor.fetchall(), [(j, )])
+                    self.assertEqual(cursor.fetchall(), [(j,)])
 
     @gen_test
     def test_getconn_manage_with_exception(self):
@@ -629,7 +699,9 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
                 yield conn.execute("SELECT 1")
             except psycopg2.Error:
                 pass
-        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+        self.assertEqual(
+            len(self.db.conns.busy), 0, msg="Some connections were not recycled"
+        )
 
     @gen_test
     def test_non_psycopg2_errors(self):
@@ -638,7 +710,9 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             yield self.conn.execute("SELECT %s %s;", (1,))
         except IndexError:
             pass
-        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+        self.assertEqual(
+            len(self.db.conns.busy), 0, msg="Some connections were not recycled"
+        )
 
 
 class MomokoPoolDataTestProxy(ProxyMixIn, MomokoPoolDataTest):
@@ -657,10 +731,14 @@ class MomokoPoolServerSideCursorTest(PoolBaseDataTest):
         conn = yield self.db.getconn()
         with self.db.manage(conn):
             yield conn.execute("BEGIN")
-            yield conn.execute("DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table")
+            yield conn.execute(
+                "DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table"
+            )
             while offset < int_count:
                 cursor = yield conn.execute("FETCH %s FROM all_ints", (chunk,))
-                self.assertEqual(cursor.fetchall(), [(i, ) for i in range(offset, offset+chunk)])
+                self.assertEqual(
+                    cursor.fetchall(), [(i,) for i in range(offset, offset + chunk)]
+                )
                 offset += chunk
             yield conn.execute("CLOSE all_ints")
             yield conn.execute("COMMIT")
@@ -710,18 +788,20 @@ class MomokoPoolParallelTest(PoolBaseTest):
         """Testing that pool queries database in parallel"""
         jobs = jobs or max(self.pool_size, self.max_size if self.max_size else 0)
         query_sleep = 2
-        sleep_time = query_sleep * float(jobs/self.pool_size)
+        sleep_time = query_sleep * float(jobs / self.pool_size)
 
         def func(self):
             to_yield = []
             for i in range(jobs):
-                to_yield.append(self.db.execute('SELECT pg_sleep(%s);' % query_sleep))
+                to_yield.append(self.db.execute("SELECT pg_sleep(%s);" % query_sleep))
             yield to_yield
 
         start_time = time.time()
         gen_test(func)(self)
         execution_time = time.time() - start_time
-        self.assertLess(execution_time, sleep_time*1.10, msg="Query execution was too long")
+        self.assertLess(
+            execution_time, sleep_time * 1.10, msg="Query execution was too long"
+        )
 
     def test_parallel_queries(self):
         """Testing that pool queries database in parallel"""
@@ -731,7 +811,7 @@ class MomokoPoolParallelTest(PoolBaseTest):
 
     def test_request_queueing(self):
         """Test that pool queues outstaning requests when all connections are busy"""
-        self.run_parallel_queries(self.pool_size*2)
+        self.run_parallel_queries(self.pool_size * 2)
 
     def test_parallel_queries_after_reconnect_all(self):
         """Testing that pool still queries database in parallel after ALL connections were closed"""
@@ -740,7 +820,7 @@ class MomokoPoolParallelTest(PoolBaseTest):
 
     def test_parallel_queries_after_reconnect_some(self):
         """Testing that pool still queries database in parallel after SOME connections were closed"""
-        self.shutter(self.db, amount=self.pool_size/2)
+        self.shutter(self.db, amount=self.pool_size / 2)
         self.run_parallel_queries()
 
 
@@ -763,7 +843,7 @@ class MomokoPoolStretchTest(MomokoPoolParallelTest):
         self.run_and_check_query(self.db)
         self.run_and_check_query(self.db)
         self.run_and_check_query(self.db)
-        self.assertEqual(self.db.conns.total, self.pool_size+1)
+        self.assertEqual(self.db.conns.total, self.pool_size + 1)
 
     def test_dont_stretch_after_reconnect(self):
         """Testing that reconnecting dead connection does not trigger pool stretch"""
@@ -862,9 +942,14 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         except db.DatabaseNotAvailable:
             pass
 
-    @unittest.skipIf(tornado.version_info[0] == 5, "This test does not work with Tornado 5.x for reasons yet known")
+    @unittest.skipIf(
+        tornado.version_info[0] == 5,
+        "This test does not work with Tornado 5.x for reasons yet known",
+    )
     @gen_test
-    def test_abort_waiting_queue(self, final_exception=momoko.Pool.DatabaseNotAvailable):
+    def test_abort_waiting_queue(
+        self, final_exception=momoko.Pool.DatabaseNotAvailable
+    ):
         """Testing that waiting queue is aborted properly when all connections are dead"""
         db = yield self.build_pool(dsn=self.good_dsn, size=1)
         f1 = db.execute("SELECT 1")
@@ -892,7 +977,7 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         # This is to hide tornado warnings about unconsumed futures
         try:
             yield f
-        except:
+        except Exception:
             pass
 
     @gen_test
@@ -912,12 +997,11 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         # This is to hide tornado warnings about unconsumed futures
         try:
             yield f
-        except:
+        except Exception:
             pass
 
 
 class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
-
     def test_abort_waiting_queue(self):
         # In case of the real database disconnect we won't
         # get DatabaseNotAvailable exception, since restarting
@@ -925,7 +1009,9 @@ class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
         # mark connections are closed and thus release() method
         # will resume next future from the queue (which in turn
         # will fail later on while connecting to non-existent server)
-        super(MomokoPoolVolatileDbTestProxy, self).test_abort_waiting_queue(psycopg2.OperationalError)
+        super(MomokoPoolVolatileDbTestProxy, self).test_abort_waiting_queue(
+            psycopg2.OperationalError
+        )
 
     @gen_test
     def test_execute_can_wait_for_connection_after_disconnect(self):
@@ -1010,15 +1096,18 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
 
     @gen_test
     def test_pool_shrinking(self):
-        db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
-                                   shrink_period=datetime.timedelta(milliseconds=500))
+        db = yield self.build_pool(
+            auto_shrink=True,
+            shrink_delay=datetime.timedelta(seconds=1),
+            shrink_period=datetime.timedelta(milliseconds=500),
+        )
         f1 = db.execute("SELECT 1")
         f2 = db.execute("SELECT 2")
         f3 = db.execute("SELECT 3")
         f4 = db.execute("SELECT 4")
         f5 = db.execute("SELECT 5")
         cursors = yield [f1, f2, f3, f4, f5]
-        yield gen.sleep(.7)
+        yield gen.sleep(0.7)
 
         self.assertEqual(db.conns.total, 5)
         self.assertEqual(cursors[0].fetchone()[0], 1)
@@ -1033,15 +1122,18 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
 
     @gen_test
     def test_pool_shrinking_with_shrink_delay(self):
-        db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
-                                   shrink_period=datetime.timedelta(milliseconds=500))
+        db = yield self.build_pool(
+            auto_shrink=True,
+            shrink_delay=datetime.timedelta(seconds=1),
+            shrink_period=datetime.timedelta(milliseconds=500),
+        )
         f1 = db.execute("SELECT 1")
         f2 = db.execute("SELECT 2")
         f3 = db.execute("SELECT 3")
         f4 = db.execute("SELECT 4")
         f5 = db.execute("SELECT 5")
         cursors = yield [f1, f2, f3, f4, f5]
-        yield gen.sleep(.7)
+        yield gen.sleep(0.7)
 
         self.assertEqual(db.conns.total, 5)
         self.assertEqual(cursors[0].fetchone()[0], 1)
@@ -1062,9 +1154,10 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
 
         self.assertEqual(db.conns.total, 3)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if debug:
-        FORMAT = '%(asctime)-15s %(levelname)s:%(name)s %(funcName)-15s: %(message)s'
+        FORMAT = "%(asctime)-15s %(levelname)s:%(name)s %(funcName)-15s: %(message)s"
         logging.basicConfig(format=FORMAT)
         logging.getLogger("momoko").setLevel(logging.DEBUG)
         logging.getLogger("unittest").setLevel(logging.DEBUG)
