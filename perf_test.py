@@ -2,7 +2,7 @@ from __future__ import absolute_import, print_function
 
 import threading
 
-from tests import *
+from tests import * # noqa 
 
 """
 Quick and dirty performance test - async vs threads.

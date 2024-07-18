@@ -977,7 +977,7 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         # This is to hide tornado warnings about unconsumed futures
         try:
             yield f
-        except:
+        except Exception:
             pass
 
     @gen_test
@@ -997,7 +997,7 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         # This is to hide tornado warnings about unconsumed futures
         try:
             yield f
-        except:
+        except Exception:
             pass
 
 

@@ -14,7 +14,7 @@ import os
 try:
     from setuptools import Command, Extension, setup
 except ImportError:
-    from distutils.core import setup
+    from distutils.core import Command, Extension, setup
 
 
 dependencies = [
