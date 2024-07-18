@@ -14,6 +14,7 @@ class PoolError(Exception):
     """
     Raised when something goes wrong in the connection pool.
     """
+
     pass
 
 

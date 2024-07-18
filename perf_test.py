@@ -53,7 +53,7 @@ class MomokoPoolPerformanceTest(PoolBaseTest):
             conns.append(conn)
 
         def runner(conn):
-            for i in range(int(amount/thread_num)):
+            for i in range(int(amount / thread_num)):
                 with conn.cursor() as cur:
                     cur.execute(self.query)
                     cur.fetchall()
@@ -72,7 +72,6 @@ class MomokoPoolPerformanceTest(PoolBaseTest):
         return delta
 
     def run_pool_queries(self, amount=amount, thread_num=1):
-
         db = self.build_pool_sync(dsn=good_dsn, size=thread_num)
 
         start = time.time()
@@ -91,13 +90,16 @@ class MomokoPoolPerformanceTest(PoolBaseTest):
     def test_perf(self):
         print("\n")
         for threads in (1, 10, 100, 1000):
-            print("Threads(%s): %.2f seconds" % (threads, self.run_thread_queries(thread_num=threads)))
+            print(
+                "Threads(%s): %.2f seconds"
+                % (threads, self.run_thread_queries(thread_num=threads))
+            )
             print("Pool(%s): %.2f seconds" % (threads, self.run_pool_queries(thread_num=threads)))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if debug:
-        FORMAT = '%(asctime)-15s %(levelname)s:%(name)s %(funcName)-15s: %(message)s'
+        FORMAT = "%(asctime)-15s %(levelname)s:%(name)s %(funcName)-15s: %(message)s"
         logging.basicConfig(format=FORMAT)
         logging.getLogger("momoko").setLevel(logging.DEBUG)
         logging.getLogger("unittest").setLevel(logging.DEBUG)

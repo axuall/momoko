@@ -12,6 +12,7 @@ MIT, see LICENSE for more details.
 from __future__ import print_function
 
 import sys
+
 if sys.version_info[0] >= 3:
     basestring = str
 
@@ -36,30 +37,33 @@ from .exceptions import PoolError, PartiallyConnectedError
 # Backfill for tornado 5 compatability
 # https://www.tornadoweb.org/en/stable/concurrent.html#tornado.concurrent.future_set_exc_info
 if tornado.version_info[0] < 5:
+
     def future_set_exc_info(future, exc_info):
         future.set_exc_info(exc_info)
 else:
     from tornado.concurrent import future_set_exc_info
 
-log = logging.getLogger('momoko')
+log = logging.getLogger("momoko")
 
 
 class ConnectionContainer(object):
     """
     Helper class that stores connections according to their state
     """
+
     def __init__(self):
         self.empty()
 
     def __repr__(self):
-        return ('<%s at %x: %d free, %d busy, %d dead, %d pending, %d waiting>'
-                % (self.__class__.__name__,
-                   id(self),
-                   len(self.free),
-                   len(self.busy),
-                   len(self.dead),
-                   len(self.pending),
-                   len(self.waiting_queue)))
+        return "<%s at %x: %d free, %d busy, %d dead, %d pending, %d waiting>" % (
+            self.__class__.__name__,
+            id(self),
+            len(self.free),
+            len(self.busy),
+            len(self.dead),
+            len(self.pending),
+            len(self.waiting_queue),
+        )
 
     def empty(self):
         self.free = deque()
@@ -136,7 +140,9 @@ class ConnectionContainer(object):
 
     def shrink(self, target_size, delay_in_seconds):
         now = time.time()
-        while len(self.free) > target_size and now - self.free[0].last_used_time > delay_in_seconds:
+        while (
+            len(self.free) > target_size and now - self.free[0].last_used_time > delay_in_seconds
+        ):
             conn = self.free.popleft()
             conn.close()
 
@@ -226,32 +232,36 @@ class Pool(object):
     class DatabaseNotAvailable(psycopg2.DatabaseError):
         """Raised when Pool can not connect to database server"""
 
-    def __init__(self,
-                 dsn,
-                 connection_factory=None,
-                 cursor_factory=None,
-                 size=1,
-                 max_size=None,
-                 ioloop=None,
-                 raise_connect_errors=True,
-                 reconnect_interval=500,
-                 setsession=(),
-                 auto_shrink=False,
-                 shrink_delay=datetime.timedelta(minutes=2),
-                 shrink_period=datetime.timedelta(minutes=2)
-                 ):
-
+    def __init__(
+        self,
+        dsn,
+        connection_factory=None,
+        cursor_factory=None,
+        size=1,
+        max_size=None,
+        ioloop=None,
+        raise_connect_errors=True,
+        reconnect_interval=500,
+        setsession=(),
+        auto_shrink=False,
+        shrink_delay=datetime.timedelta(minutes=2),
+        shrink_period=datetime.timedelta(minutes=2),
+    ):
         assert size > 0, "The connection pool size must be a number above 0."
 
         self.size = size
         self.max_size = max_size or size
-        assert self.size <= self.max_size, "The connection pool max size must be of at least 'size'."
+        assert (
+            self.size <= self.max_size
+        ), "The connection pool max size must be of at least 'size'."
 
         self.dsn = dsn
         self.connection_factory = connection_factory
         self.cursor_factory = cursor_factory
         self.raise_connect_errors = raise_connect_errors
-        self.reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
+        self.reconnect_interval = (
+            float(reconnect_interval) / 1000
+        )  # the parameter is in milliseconds
         self.setsession = setsession
 
         self.connected = False
@@ -263,7 +273,9 @@ class Pool(object):
         self.conns = ConnectionContainer()
 
         self._last_connect_time = 0
-        self._no_conn_available_error = self.DatabaseNotAvailable("No database connection available")
+        self._no_conn_available_error = self.DatabaseNotAvailable(
+            "No database connection available"
+        )
         self.shrink_period = shrink_period
         self.shrink_delay = shrink_delay
         self.auto_shrink = auto_shrink
@@ -282,7 +294,7 @@ class Pool(object):
         is true, raises :py:meth:`momoko.PartiallyConnectedError`.
         """
         future = Future()
-        pending = [self.size-1]
+        pending = [self.size - 1]
 
         def on_connect(fut):
             if pending[0]:
@@ -290,7 +302,9 @@ class Pool(object):
                 return
             # all connection attempts are complete
             if self.conns.dead and self.raise_connect_errors:
-                ecp = PartiallyConnectedError("%s connection(s) failed to connect" % len(self.conns.dead))
+                ecp = PartiallyConnectedError(
+                    "%s connection(s) failed to connect" % len(self.conns.dead)
+                )
                 future.set_exception(ecp)
             else:
                 future.set_result(self)
@@ -367,7 +381,9 @@ class Pool(object):
                 cursor = yield connection.execute("BEGIN")
                 ...
         """
-        assert connection in self.conns.busy, "Can not manage non-busy connection. Where did you get it from?"
+        assert (
+            connection in self.conns.busy
+        ), "Can not manage non-busy connection. Where did you get it from?"
         try:
             yield connection
         finally:
@@ -454,7 +470,7 @@ class Pool(object):
         **NOTE:** This is a synchronous method.
         """
         if self.closed:
-            raise PoolError('connection pool is already closed')
+            raise PoolError("connection pool is already closed")
 
         self.conns.close_alive()
         self.conns.empty()
@@ -533,7 +549,7 @@ class Pool(object):
             future.set_result(None)
             return future
 
-        pending = [len(self.conns.dead)-1]
+        pending = [len(self.conns.dead) - 1]
 
         def on_connect(fut):
             if pending[0]:
@@ -565,11 +581,13 @@ class Pool(object):
 
     def _new_connection(self):
         log.debug("Opening new connection")
-        conn = Connection(self.dsn,
-                          connection_factory=self.connection_factory,
-                          cursor_factory=self.cursor_factory,
-                          ioloop=self.ioloop,
-                          setsession=self.setsession)
+        conn = Connection(
+            self.dsn,
+            connection_factory=self.connection_factory,
+            cursor_factory=self.cursor_factory,
+            ioloop=self.ioloop,
+            setsession=self.setsession,
+        )
         return self._connect_one(conn)
 
     def _connect_one(self, conn):
@@ -658,13 +676,10 @@ class Connection(object):
     .. _psycopg2.extensions.connection: http://initd.org/psycopg/docs/connection.html#connection
     .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
     """
-    def __init__(self,
-                 dsn,
-                 connection_factory=None,
-                 cursor_factory=None,
-                 ioloop=None,
-                 setsession=()):
 
+    def __init__(
+        self, dsn, connection_factory=None, cursor_factory=None, ioloop=None, setsession=()
+    ):
         self.dsn = dsn
         self.connection_factory = connection_factory
         self.cursor_factory = cursor_factory
@@ -698,7 +713,9 @@ class Connection(object):
             on_connect_future = Future()
 
             def on_connect(on_connect_future):
-                self.ioloop.add_future(self.transaction(self.setsession), lambda x: future.set_result(self))
+                self.ioloop.add_future(
+                    self.transaction(self.setsession), lambda x: future.set_result(self)
+                )
 
             self.ioloop.add_future(on_connect_future, on_connect)
             callback = partial(self._io_callback, on_connect_future, self)
@@ -754,10 +771,7 @@ class Connection(object):
         """
         return self.execute("SELECT 1 AS ping")
 
-    def execute(self,
-                operation,
-                parameters=(),
-                cursor_factory=None):
+    def execute(self, operation, parameters=(), cursor_factory=None):
         """
         Prepare and execute a database operation (query or command).
 
@@ -788,10 +802,7 @@ class Connection(object):
         self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
         return future
 
-    def callproc(self,
-                 procname,
-                 parameters=(),
-                 cursor_factory=None):
+    def callproc(self, procname, parameters=(), cursor_factory=None):
         """
         Call a stored database procedure with the given name.
 
@@ -848,10 +859,7 @@ class Connection(object):
         cursor = self.connection.cursor()
         return cursor.mogrify(operation, parameters)
 
-    def transaction(self,
-                    statements,
-                    cursor_factory=None,
-                    auto_rollback=True):
+    def transaction(self, statements, cursor_factory=None, auto_rollback=True):
         """
         Run a sequence of SQL queries in a database transaction.
 
@@ -911,7 +919,7 @@ class Connection(object):
                 yield (statement, ())
             else:
                 yield statement[:2]
-        yield ('COMMIT;', ())
+        yield ("COMMIT;", ())
 
     def _rollback(self, transaction_future, error):
         def rollback_callback(rb_future):
@@ -920,6 +928,7 @@ class Connection(object):
             except Exception as rb_error:
                 log.warn("Failed to ROLLBACK transaction %s", rb_error)
             transaction_future.set_exception(error)
+
         self.ioloop.add_future(self.execute("ROLLBACK;"), rollback_callback)
 
     def _register(self, future, registrator, fut):
@@ -955,9 +964,12 @@ class Connection(object):
         future = Future()
         registrator = partial(_psy_register_hstore, None, globally, unicode)
         callback = partial(self._register, future, registrator)
-        self.ioloop.add_future(self.execute(
-            "SELECT 'hstore'::regtype::oid AS hstore_oid, 'hstore[]'::regtype::oid AS hstore_arr_oid",
-        ), callback)
+        self.ioloop.add_future(
+            self.execute(
+                "SELECT 'hstore'::regtype::oid AS hstore_oid, 'hstore[]'::regtype::oid AS hstore_arr_oid",
+            ),
+            callback,
+        )
 
         return future
 
@@ -983,9 +995,12 @@ class Connection(object):
         future = Future()
         registrator = partial(_psy_register_json, None, globally, loads)
         callback = partial(self._register, future, registrator)
-        self.ioloop.add_future(self.execute(
-            "SELECT 'json'::regtype::oid AS json_oid, 'json[]'::regtype::oid AS json_arr_oid"
-        ), callback)
+        self.ioloop.add_future(
+            self.execute(
+                "SELECT 'json'::regtype::oid AS json_oid, 'json[]'::regtype::oid AS json_arr_oid"
+            ),
+            callback,
+        )
 
         return future
 
