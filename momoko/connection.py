@@ -513,8 +513,14 @@ class Pool(object):
             def when_done(rfut):
                 try:
                     result = rfut.result()
-                except psycopg2.Error:
+                except psycopg2.Error as err:
                     log.debug("Method failed Asynchronously")
+                    if "SSL SYSCALL error:" in str(err):
+                        log.warning("SSL SYSCALL failure so closing connection")
+                        conn.close()
+                        future_set_exc_info(future, sys.exc_info())
+                        return
+
                     return self._retry(retry, when_available, conn, keep, future)
 
                 future.set_result(result)
