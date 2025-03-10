@@ -518,6 +518,8 @@ class Pool(object):
                     if "SSL SYSCALL error:" in str(err):
                         log.warning("SSL SYSCALL failure so closing connection")
                         conn.close()
+                        future_set_exc_info(future, sys.exc_info())
+                        return
 
                     return self._retry(retry, when_available, conn, keep, future)
 
