@@ -45,6 +45,48 @@ else:
 log = logging.getLogger("momoko")
 
 
+DISCONNECT_LIST = {
+    # these error messages from libpq: interfaces/libpq/fe-misc.c
+    # and interfaces/libpq/fe-secure.c.
+    "terminating connection",
+    "closed the connection",
+    "connection not open",
+    "could not receive data from server",
+    "could not send data to server",
+    # psycopg2 client errors, psycopg2/connection.h,
+    # psycopg2/cursor.h
+    "connection already closed",
+    "cursor already closed",
+    # not sure where this path is originally from, it may
+    # be obsolete.   It really says "losed", not "closed".
+    "losed the connection unexpectedly",
+    # these can occur in newer SSL
+    "connection has been closed unexpectedly",
+    "SSL error: decryption failed or bad record mac",
+    "SSL SYSCALL error: Bad file descriptor",
+    "SSL SYSCALL error: EOF detected",
+    "SSL SYSCALL error: Operation timed out",
+    "SSL SYSCALL error: Bad address",
+    # This can occur in OpenSSL 1 when an unexpected EOF occurs.
+    # https://www.openssl.org/docs/man1.1.1/man3/SSL_get_error.html#BUGS
+    # It may also occur in newer OpenSSL for a non-recoverable I/O
+    # error as a result of a system call that does not set 'errno'
+    # in libc.
+    "SSL SYSCALL error: Success",
+}
+
+
+def should_disconnect(exc):
+    """
+    Inspired by those that came before...
+
+    https://github.com/sqlalchemy/sqlalchemy/blob/eeeff33c6d59e88f055914505dfe552f8ce6df47/lib/sqlalchemy/dialects/postgresql/psycopg2.py#L860
+    """
+    return any(msg in str(exc) for msg in DISCONNECT_LIST)
+
+
+
+
 class ConnectionContainer(object):
     """
     Helper class that stores connections according to their state
@@ -515,8 +557,8 @@ class Pool(object):
                     result = rfut.result()
                 except psycopg2.Error as err:
                     log.debug("Method failed Asynchronously")
-                    if "SSL SYSCALL error:" in str(err):
-                        log.warning("SSL SYSCALL failure so closing connection")
+                    if should_disconnect(err):
+                        log.warning("Received a disconnect error, so close.")
                         conn.close()
                         future_set_exc_info(future, sys.exc_info())
                         return
