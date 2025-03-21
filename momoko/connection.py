@@ -76,15 +76,13 @@ DISCONNECT_LIST = {
 }
 
 
-def should_disconnect(exc):
+def should_reconnect(exc):
     """
     Inspired by those that came before...
 
     https://github.com/sqlalchemy/sqlalchemy/blob/eeeff33c6d59e88f055914505dfe552f8ce6df47/lib/sqlalchemy/dialects/postgresql/psycopg2.py#L860
     """
     return any(msg in str(exc) for msg in DISCONNECT_LIST)
-
-
 
 
 class ConnectionContainer(object):
@@ -135,9 +133,7 @@ class ConnectionContainer(object):
 
         # If everything is dead, abort anything pending.
         if not self.pending:
-            self.abort_waiting_queue(
-                Pool.DatabaseNotAvailable("No database connection available")
-            )
+            self.abort_waiting_queue(Pool.DatabaseNotAvailable("No database connection available"))
 
     def acquire(self):
         """Occupy free connection"""
@@ -153,9 +149,7 @@ class ConnectionContainer(object):
             self.waiting_queue.appendleft(future)
             return future
         elif self.pending:
-            log.debug(
-                "No free connections, but some are pending - put in waiting queue"
-            )
+            log.debug("No free connections, but some are pending - put in waiting queue")
             self.waiting_queue.appendleft(future)
             return future
         else:
@@ -186,8 +180,7 @@ class ConnectionContainer(object):
     def shrink(self, target_size, delay_in_seconds):
         now = time.time()
         while (
-            len(self.free) > target_size
-            and now - self.free[0].last_used_time > delay_in_seconds
+            len(self.free) > target_size and now - self.free[0].last_used_time > delay_in_seconds
         ):
             conn = self.free.popleft()
             conn.close()
@@ -297,9 +290,9 @@ class Pool(object):
 
         self.size = size
         self.max_size = max_size or size
-        assert (
-            self.size <= self.max_size
-        ), "The connection pool max size must be of at least 'size'."
+        assert self.size <= self.max_size, (
+            "The connection pool max size must be of at least 'size'."
+        )
 
         self.dsn = dsn
         self.connection_factory = connection_factory
@@ -427,9 +420,9 @@ class Pool(object):
                 cursor = yield connection.execute("BEGIN")
                 ...
         """
-        assert (
-            connection in self.conns.busy
-        ), "Can not manage non-busy connection. Where did you get it from?"
+        assert connection in self.conns.busy, (
+            "Can not manage non-busy connection. Where did you get it from?"
+        )
         try:
             yield connection
         finally:
@@ -522,9 +515,7 @@ class Pool(object):
         self.conns.empty()
         self.closed = True
 
-    def _operate(
-        self, method, args=(), kwargs=None, async_=True, keep=False, connection=None
-    ):
+    def _operate(self, method, args=(), kwargs=None, async_=True, keep=False, connection=None):
         kwargs = kwargs or {}
         future = Future()
 
@@ -557,10 +548,10 @@ class Pool(object):
                     result = rfut.result()
                 except psycopg2.Error as err:
                     log.debug("Method failed Asynchronously")
-                    if should_disconnect(err):
-                        log.warning("Received a disconnect error, so close.")
+                    if should_reconnect(err):
+                        log.warning("Received a disconnect error, closing and reconnecting.")
                         conn.close()
-                        future_set_exc_info(future, sys.exc_info())
+                        conn.connect()
                         return
 
                     return self._retry(retry, when_available, conn, keep, future)
@@ -594,9 +585,7 @@ class Pool(object):
         return
 
     def _reanimate(self):
-        assert (
-            self.conns.dead
-        ), "BUG: don't call reanimate when there is no one to reanimate"
+        assert self.conns.dead, "BUG: don't call reanimate when there is no one to reanimate"
 
         future = Future()
 
@@ -816,9 +805,7 @@ class Connection(object):
                 elif state == POLL_WRITE:
                     self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
                 else:
-                    future.set_exception(
-                        psycopg2.OperationalError("poll() returned %s" % state)
-                    )
+                    future.set_exception(psycopg2.OperationalError("poll() returned %s" % state))
             except IOError:
                 # Can happen when there are quite a lof of outstanding
                 # requests. See https://github.com/FSX/momoko/issues/127
