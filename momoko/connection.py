@@ -11,6 +11,8 @@ MIT, see LICENSE for more details.
 
 from __future__ import print_function
 
+import os
+import signal
 import sys
 
 if sys.version_info[0] >= 3:
@@ -549,9 +551,9 @@ class Pool(object):
                 except psycopg2.Error as err:
                     log.debug("Method failed Asynchronously")
                     if should_reconnect(err):
-                        log.warning("Received a disconnect error, closing and reconnecting.")
-                        conn.close()
-                        conn.connect()
+                        log.warning("Received a disconnect error, restarting process.")
+                        pid = os.getpid()
+                        os.kill(pid, signal.SIGTERM)
                         return
 
                     return self._retry(retry, when_available, conn, keep, future)
