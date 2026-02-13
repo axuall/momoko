@@ -1,8 +1,11 @@
-.PHONY: all test tcproxy start_docker run_test stop_docker clean
+.PHONY: all test tcproxy start_docker run_test stop_docker clean pip_deps lint format
 
 all:
 
-test: tcproxy start_docker run_test stop_docker
+pip_deps:
+	uv sync
+
+test: start_docker run_test stop_docker
 
 tcproxy:
 	$(MAKE) -C tcproxy
@@ -15,9 +18,16 @@ start_docker: stop_docker
 	done
 
 run_test:
-	pytest tests.py
+	-$(MAKE) -C tcproxy
+	uv run pytest tests.py
 
 stop_docker:
-	-docker rm -f momoko_test_pg 
+	-docker rm -f momoko_test_pg
 
 clean: stop_docker
+
+lint:
+	uv run ruff check .
+
+format:
+	uv run ruff format .

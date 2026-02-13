@@ -5,6 +5,7 @@ import inspect
 import logging
 import os
 import random
+import signal
 import string
 import subprocess
 import sys
@@ -530,6 +531,10 @@ class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
 
 
 @unittest.skipIf(
+    not os.path.isfile(TCPPROXY_PATH),
+    "Skipping proxy tests: tcproxy binary not found at %s" % TCPPROXY_PATH,
+)
+@unittest.skipIf(
     psycopg2_impl == "psycopg2cffi",
     "Skipped. See: https://github.com/chtd/psycopg2cffi/issues/49",
 )
@@ -568,12 +573,21 @@ class ProxyMixIn(object):
         self.start_proxy()
 
     def set_up_00(self):
+        self._orig_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        signal.signal(signal.SIGTERM, self._sigterm_handler)
         self.start_proxy()
 
     def tear_down_00(self):
         self.terminate_proxy()
+        signal.signal(signal.SIGTERM, self._orig_sigterm_handler)
+        if hasattr(self, "db") and not self.db.closed:
+            self.db.close()
 
     shutter = kill_connections
+
+    @staticmethod
+    def _sigterm_handler(signum, frame):
+        raise SystemExit("SIGTERM received during proxy test")
 
 
 class MomokoPoolTest(PoolBaseTest):
