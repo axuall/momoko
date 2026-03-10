@@ -1,4 +1,0 @@
-line-length = 99
-
-[lint]
-ignore = ["F401", "E402", "F405"]

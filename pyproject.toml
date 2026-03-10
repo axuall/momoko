@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Momoko"
+version = "2.2.7"
+description = "Momoko wraps Psycopg2's functionality for use in Tornado."
+readme = "README.rst"
+license = "MIT"
+requires-python = "~=3.12.0"
+authors = [
+    {name = "Frank Smit & Zaar Hai", email = "frank@61924.nl"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+]
+dependencies = [
+    "tornado>=4.0,<7.0",
+    "psycopg2-binary",
+]
+
+[project.urls]
+Homepage = "http://momoko.61924.nl/"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.setuptools]
+packages = ["momoko"]
+
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.lint]
+ignore = ["F401", "E402", "F405"]
